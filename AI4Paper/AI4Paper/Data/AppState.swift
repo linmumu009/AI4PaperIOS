@@ -20,6 +20,7 @@ final class AppState: ObservableObject {
         refreshSavedPapers()
 
         store.$savedIds
+            .dropFirst()
             .sink { [weak self] _ in
                 self?.refreshSavedPapers()
                 self?.refreshFeed()
@@ -27,6 +28,7 @@ final class AppState: ObservableObject {
             .store(in: &cancellables)
 
         store.$dislikedIds
+            .dropFirst()
             .sink { [weak self] _ in
                 self?.refreshFeed()
             }
@@ -41,19 +43,16 @@ final class AppState: ObservableObject {
         guard let paper = currentPaper else { return }
         store.save(id: paper.id)
         store.recordEvent(paperId: paper.id, action: .like)
-        advanceFeed()
     }
 
     func dislikeCurrent() {
         guard let paper = currentPaper else { return }
         store.dislike(id: paper.id)
         store.recordEvent(paperId: paper.id, action: .dislike)
-        advanceFeed()
     }
 
     func removeSaved(id: String) {
         store.removeSaved(id: id)
-        refreshFeed()
     }
 
     func linkForCurrent() -> URL? {
@@ -61,18 +60,14 @@ final class AppState: ObservableObject {
     }
 
     private func refreshFeed() {
+        let savedSet = Set(store.savedIds)
         feedPapers = allPapers.filter { paper in
-            !store.savedIds.contains(paper.id) && !store.dislikedIds.contains(paper.id)
+            !savedSet.contains(paper.id) && !store.dislikedIds.contains(paper.id)
         }
     }
 
     private func refreshSavedPapers() {
         let lookup = Dictionary(uniqueKeysWithValues: allPapers.map { ($0.id, $0) })
         savedPapers = store.savedIds.compactMap { lookup[$0] }
-    }
-
-    private func advanceFeed() {
-        guard !feedPapers.isEmpty else { return }
-        feedPapers.removeFirst()
     }
 }

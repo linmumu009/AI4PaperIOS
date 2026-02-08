@@ -14,7 +14,7 @@ struct LibraryView: View {
                             PaperDetailView(paper: paper)
                         } label: {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text(paper.displayTitle)
+                                Text(paper.headerLine)
                                     .font(.headline)
                                     .lineLimit(2)
                                 Text(paper.summaryText)

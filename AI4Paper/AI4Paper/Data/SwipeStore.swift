@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 final class SwipeStore: ObservableObject {
-    @Published private(set) var savedIds: Set<String>
+    @Published private(set) var savedIds: [String]
     @Published private(set) var dislikedIds: Set<String>
     @Published private(set) var events: [SwipeEvent]
 
@@ -14,14 +14,9 @@ final class SwipeStore: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
 
-        // 👇 新增：启动时清空所有刷过记录
-        defaults.removeObject(forKey: savedKey)
-        defaults.removeObject(forKey: dislikedKey)
-        defaults.removeObject(forKey: eventsKey)
-
         let savedArray = defaults.array(forKey: savedKey) as? [String] ?? []
         let dislikedArray = defaults.array(forKey: dislikedKey) as? [String] ?? []
-        self.savedIds = Set(savedArray)
+        self.savedIds = savedArray
         self.dislikedIds = Set(dislikedArray)
 
         if let data = defaults.data(forKey: eventsKey),
@@ -34,7 +29,9 @@ final class SwipeStore: ObservableObject {
 
 
     func save(id: String) {
-        savedIds.insert(id)
+        if !savedIds.contains(id) {
+            savedIds.append(id)
+        }
         dislikedIds.remove(id)
         persistSaved()
         persistDisliked()
@@ -42,13 +39,13 @@ final class SwipeStore: ObservableObject {
 
     func dislike(id: String) {
         dislikedIds.insert(id)
-        savedIds.remove(id)
+        savedIds.removeAll { $0 == id }
         persistSaved()
         persistDisliked()
     }
 
     func removeSaved(id: String) {
-        savedIds.remove(id)
+        savedIds.removeAll { $0 == id }
         persistSaved()
     }
 
@@ -59,7 +56,7 @@ final class SwipeStore: ObservableObject {
     }
 
     private func persistSaved() {
-        defaults.set(Array(savedIds), forKey: savedKey)
+        defaults.set(savedIds, forKey: savedKey)
     }
 
     private func persistDisliked() {
