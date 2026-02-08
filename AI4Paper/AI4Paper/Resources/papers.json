@@ -1,0 +1,59 @@
+[
+  {
+    "id": "2602.05810",
+    "title": "Bifrost: Steering Strategic Trajectories to Bridge Contextual Gaps for Self-Improving Agents",
+    "summary": "提出无需训练的 Bifrost 方法，利用上下文偏移与成功轨迹偏移在表征空间中的平行性，实现跨任务轨迹自适应。",
+    "keyPoints": [
+      "隐状态分析显示上下文变化方向与成功轨迹方向高度一致，满足线性表示假设。",
+      "以目标问题隐状态与历史轨迹均值之差作为迁移向量，在中间层对 token 隐状态施加扰动。",
+      "在残差流中操作中间层隐藏状态，实现零训练、零微调、零环境交互。"
+    ],
+    "tags": [
+      "LLM Agents",
+      "Context Transfer",
+      "Trajectory"
+    ],
+    "authors": [],
+    "year": 2026,
+    "venue": "arXiv",
+    "link": "https://arxiv.org/abs/2602.05810"
+  },
+  {
+    "id": "2602.05842",
+    "title": "Reinforcement World Model Learning for LLM-based Agents",
+    "summary": "提出 Reinforcement World Model Learning（RWML），通过 sim-to-real 语义对齐奖励自监督学习动作条件下的世界模型。",
+    "keyPoints": [
+      "构建动作-状态-下一状态三元组，由代理自主交互采集无标注训练数据。",
+      "基于嵌入空间相似度设计 sim-to-real 奖励，衡量预测状态与真实状态的一致性。",
+      "采用 GRPO 优化奖励，并引入样本筛选，聚焦中高难度建模任务。"
+    ],
+    "tags": [
+      "World Model",
+      "Reinforcement Learning",
+      "LLM Agents"
+    ],
+    "authors": [],
+    "year": 2026,
+    "venue": "arXiv",
+    "link": "https://arxiv.org/abs/2602.05842"
+  },
+  {
+    "id": "2602.05843",
+    "title": "OdysseyArena: Benchmarking Large Language Models For Long-Horizon, Active and Inductive Interactions",
+    "summary": "提出 ODYSSEYARENA 基准，系统评测 LLM 在长周期交互与归纳推理任务中的真实世界建模能力。",
+    "keyPoints": [
+      "解构环境动态为四类原语，并构建四个轻量交互环境进行评测。",
+      "发布 LITE 与 CHALLENGE 双粒度评测协议，覆盖归纳效率与长期稳定性。",
+      "基准揭示当前模型存在显著归纳瓶颈，成功率远低于人类水平。"
+    ],
+    "tags": [
+      "Benchmark",
+      "Inductive Reasoning",
+      "LLM Agents"
+    ],
+    "authors": [],
+    "year": 2026,
+    "venue": "arXiv",
+    "link": "https://arxiv.org/abs/2602.05843"
+  }
+]
