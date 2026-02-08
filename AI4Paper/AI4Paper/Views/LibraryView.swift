@@ -120,8 +120,8 @@ struct LibraryView: View {
             }
         }
 
-        if statusFilter != .all {
-            items = items.filter { $0.meta.status == statusFilter.status }
+        if let requiredStatus = statusFilter.status {
+            items = items.filter { $0.meta.status == requiredStatus }
         }
 
         if let selectedFolderId {
@@ -176,8 +176,7 @@ struct LibraryView: View {
         }
     }
 
-    @ViewBuilder
-    private func groupedByTag(_ items: [LibraryItemViewData]) -> some View {
+    private func tagGroups(from items: [LibraryItemViewData]) -> [(key: String, items: [LibraryItemViewData])] {
         var groups: [String: [LibraryItemViewData]] = [:]
         for item in items {
             if item.meta.tags.isEmpty {
@@ -188,16 +187,21 @@ struct LibraryView: View {
                 }
             }
         }
-        let sortedKeys = groups.keys.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-        ForEach(sortedKeys, id: \.self) { key in
-            Section(header: Text(key)) {
-                if let sectionItems = groups[key] {
-                    ForEach(sectionItems, id: \.id) { item in
-                        itemRow(item)
-                    }
-                    .onDelete { offsets in
-                        deleteItems(offsets, in: sectionItems)
-                    }
+        return groups.keys
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+            .map { (key: $0, items: groups[$0]!) }
+    }
+
+    @ViewBuilder
+    private func groupedByTag(_ items: [LibraryItemViewData]) -> some View {
+        let groups = tagGroups(from: items)
+        ForEach(groups, id: \.key) { group in
+            Section(header: Text(group.key)) {
+                ForEach(group.items, id: \.id) { item in
+                    itemRow(item)
+                }
+                .onDelete { offsets in
+                    deleteItems(offsets, in: group.items)
                 }
             }
         }
@@ -307,9 +311,9 @@ private enum LibraryStatusFilter: String, CaseIterable {
         }
     }
 
-    var status: LibraryReadStatus {
+    var status: LibraryReadStatus? {
         switch self {
-        case .all: return .unread
+        case .all: return nil
         case .unread: return .unread
         case .reading: return .reading
         case .finished: return .finished

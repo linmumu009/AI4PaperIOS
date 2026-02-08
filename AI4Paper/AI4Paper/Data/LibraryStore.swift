@@ -1,6 +1,5 @@
 import Foundation
 
-@MainActor
 final class LibraryStore: ObservableObject {
     @Published private(set) var metas: [String: LibraryItemMeta]
     @Published private(set) var folders: [LibraryFolder]
@@ -137,7 +136,10 @@ final class LibraryStore: ObservableObject {
             folders: folders
         )
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
-        try? data.write(to: storageURL, options: .atomic)
+        let url = storageURL
+        DispatchQueue.global(qos: .utility).async {
+            try? data.write(to: url, options: .atomic)
+        }
     }
 
     private static func loadSnapshot(from url: URL) -> LibrarySnapshot? {

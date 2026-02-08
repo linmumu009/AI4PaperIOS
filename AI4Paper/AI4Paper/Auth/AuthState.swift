@@ -36,6 +36,8 @@ final class AuthState: ObservableObject {
                     name: .authSimulatedCodeGenerated,
                     object: simulatedCode
                 )
+            } else {
+                authErrorMessage = "验证码已发送"
             }
             #else
             authErrorMessage = "验证码已发送"
@@ -84,14 +86,16 @@ final class AuthState: ObservableObject {
         cooldownTimer?.invalidate()
         guard cooldownRemaining > 0 else { return }
         cooldownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
-            guard let self else {
-                timer.invalidate()
-                return
-            }
-            if self.cooldownRemaining > 0 {
-                self.cooldownRemaining -= 1
-            } else {
-                timer.invalidate()
+            DispatchQueue.main.async {
+                guard let self else {
+                    timer.invalidate()
+                    return
+                }
+                if self.cooldownRemaining > 0 {
+                    self.cooldownRemaining -= 1
+                } else {
+                    timer.invalidate()
+                }
             }
         }
     }

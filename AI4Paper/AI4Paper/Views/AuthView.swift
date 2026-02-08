@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AuthView: View {
-    @EnvironmentObject var authState: AuthState
+    @EnvironmentObject private var authState: AuthState
     @Environment(\.dismiss) private var dismiss
 
     @State private var phone: String = ""
