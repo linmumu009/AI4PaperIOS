@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 final class LibraryStore: ObservableObject {
     @Published private(set) var metas: [String: LibraryItemMeta]

@@ -1,5 +1,10 @@
 import SwiftUI
 
+import Foundation
+import Combine
+
+
+
 struct AuthView: View {
     @EnvironmentObject private var authState: AuthState
     @Environment(\.dismiss) private var dismiss
