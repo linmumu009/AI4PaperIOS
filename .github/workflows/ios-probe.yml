@@ -1,0 +1,42 @@
+name: iOS Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+
+jobs:
+  probe:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show repo files (top level)
+        run: ls -la
+
+      - name: Find Xcode files
+        run: |
+          echo "== workspaces =="
+          find . -maxdepth 3 -name "*.xcworkspace" -print
+          echo "== projects =="
+          find . -maxdepth 3 -name "*.xcodeproj" -print
+          echo "== Package.swift =="
+          find . -maxdepth 3 -name "Package.swift" -print
+
+      - name: Probe schemes (workspace)
+        run: |
+          set +e
+          for w in $(find . -maxdepth 3 -name "*.xcworkspace"); do
+            echo "---- xcodebuild -list for workspace: $w ----"
+            xcodebuild -workspace "$w" -list
+          done
+          exit 0
+
+      - name: Probe schemes (project)
+        run: |
+          set +e
+          for p in $(find . -maxdepth 3 -name "*.xcodeproj"); do
+            echo "---- xcodebuild -list for project: $p ----"
+            xcodebuild -project "$p" -list
+          done
+          exit 0
