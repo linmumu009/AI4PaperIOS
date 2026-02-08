@@ -29,7 +29,8 @@ struct LibraryView: View {
     }
 
     private var filteredPapers: [LibraryItemViewData] {
-        var items = appState.libraryItems()
+        // 只显示未归入任何文件夹的论文
+        var items = appState.libraryItems().filter { $0.meta.folderId == nil }
 
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if !query.isEmpty {
@@ -154,7 +155,7 @@ struct LibraryView: View {
                         deleteItems(offsets, in: items)
                     }
                 } header: {
-                    Text("论文（\(items.count)）")
+                    Text("未归档论文（\(items.count)）")
                 }
             }
         }
@@ -178,11 +179,6 @@ struct LibraryView: View {
                         .lineLimit(2)
                     HStack(spacing: 6) {
                         StatusBadge(status: item.meta.status)
-                        if let name = libraryStore.folderName(for: item.meta.folderId) {
-                            Label(name, systemImage: "folder")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
                         if !item.meta.tags.isEmpty {
                             Text(item.meta.tags.joined(separator: " · "))
                                 .font(.caption)
