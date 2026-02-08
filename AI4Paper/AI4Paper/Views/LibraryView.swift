@@ -22,14 +22,13 @@ struct LibraryView: View {
 
     // ── Computed ──
 
-    private var sortedFolders: [LibraryFolder] {
-        libraryStore.folders.sorted {
-            $0.name.localizedStandardCompare($1.name) == .orderedAscending
-        }
+    /// 顶级文件夹（parentId == nil）
+    private var topLevelFolders: [LibraryFolder] {
+        libraryStore.childFolders(of: nil)
     }
 
-    private var filteredPapers: [LibraryItemViewData] {
-        // 只显示未归入任何文件夹的论文
+    /// 未归入任何文件夹的论文
+    private var unfilteredPapers: [LibraryItemViewData] {
         var items = appState.libraryItems().filter { $0.meta.folderId == nil }
 
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -52,10 +51,6 @@ struct LibraryView: View {
         case .source:        items.sort { $0.paper.source.localizedStandardCompare($1.paper.source) == .orderedAscending }
         }
         return items
-    }
-
-    private func paperCount(in folder: LibraryFolder) -> Int {
-        libraryStore.metas.values.filter { $0.folderId == folder.id }.count
     }
 
     // ── Body ──
@@ -81,7 +76,7 @@ struct LibraryView: View {
             FolderEditorView(
                 text: $newFolderName,
                 onCancel: { isCreateFolderPresented = false },
-                onSave: saveFolder
+                onSave: { saveFolder(parentId: nil) }
             )
         }
         .sheet(isPresented: $isTagEditorPresented) {
@@ -92,10 +87,11 @@ struct LibraryView: View {
             )
         }
         .sheet(isPresented: $isBatchMovePresented) {
-            BatchMoveView(
-                folders: libraryStore.folders,
+            FolderPickerView(
+                libraryStore: libraryStore,
+                excludeFolderId: nil,
                 onCancel: { isBatchMovePresented = false },
-                onMove: batchMoveToFolder
+                onPick: batchMoveToFolder
             )
         }
     }
@@ -105,54 +101,34 @@ struct LibraryView: View {
     private var listContent: some View {
         List(selection: $selection) {
             // ── 文件夹区 ──
-            if !sortedFolders.isEmpty && !editMode.isEditing {
+            if !topLevelFolders.isEmpty && !editMode.isEditing {
                 Section {
-                    ForEach(sortedFolders) { folder in
-                        NavigationLink {
-                            FolderPapersView(folder: folder)
-                        } label: {
-                            Label {
-                                HStack {
-                                    Text(folder.name)
-                                    Spacer()
-                                    Text("\(paperCount(in: folder))")
-                                        .foregroundStyle(.tertiary)
-                                }
-                            } icon: {
-                                Image(systemName: "folder.fill")
-                                    .foregroundStyle(.blue)
-                            }
-                        }
-                        .dropDestination(for: String.self) { ids, _ in
-                            for id in ids {
-                                libraryStore.updateFolder(for: id, folderId: folder.id)
-                            }
-                            return true
-                        }
+                    ForEach(topLevelFolders) { folder in
+                        FolderRow(folder: folder)
                     }
-                    .onDelete(perform: deleteFolders)
+                    .onDelete(perform: deleteTopLevelFolders)
                 } header: {
                     Text("文件夹")
                 }
             }
 
-            // ── 论文区 ──
-            let items = filteredPapers
-            if items.isEmpty {
+            // ── 未归档论文区 ──
+            let items = unfilteredPapers
+            if items.isEmpty && topLevelFolders.isEmpty {
                 Section {
                     EmptyResultView()
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 }
-            } else {
+            } else if !items.isEmpty {
                 Section {
                     ForEach(items) { item in
-                        paperRow(item)
+                        PaperRow(item: item, editMode: editMode, currentFolderId: nil)
                             .tag(item.id)
                             .draggable(item.id)
                     }
                     .onDelete { offsets in
-                        deleteItems(offsets, in: items)
+                        for index in offsets { appState.removeSaved(id: items[index].id) }
                     }
                 } header: {
                     Text("未归档论文（\(items.count)）")
@@ -160,70 +136,6 @@ struct LibraryView: View {
             }
         }
         .listStyle(.insetGrouped)
-    }
-
-    // ── Paper Row ──
-
-    private func paperRow(_ item: LibraryItemViewData) -> some View {
-        NavigationLink {
-            PaperDetailView(paper: item.paper)
-        } label: {
-            HStack(alignment: .center, spacing: 8) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(item.paper.headerLine)
-                        .font(.headline)
-                        .lineLimit(2)
-                    Text(item.paper.summaryText)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                    HStack(spacing: 6) {
-                        StatusBadge(status: item.meta.status)
-                        if !item.meta.tags.isEmpty {
-                            Text(item.meta.tags.joined(separator: " · "))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
-                if !editMode.isEditing {
-                    Spacer()
-                    paperMenu(for: item)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    private func paperMenu(for item: LibraryItemViewData) -> some View {
-        Menu {
-            if !libraryStore.folders.isEmpty {
-                Menu("移入文件夹") {
-                    Button("无文件夹") {
-                        libraryStore.updateFolder(for: item.id, folderId: nil)
-                    }
-                    Divider()
-                    ForEach(libraryStore.folders) { folder in
-                        Button(folder.name) {
-                            libraryStore.updateFolder(for: item.id, folderId: folder.id)
-                        }
-                    }
-                }
-                Divider()
-            }
-            Button("标记为未读") { libraryStore.updateStatus(for: item.id, status: .unread) }
-            Button("标记为在读") { libraryStore.updateStatus(for: item.id, status: .reading) }
-            Button("标记为已读") { libraryStore.updateStatus(for: item.id, status: .finished) }
-            Divider()
-            Button("编辑标签") { presentTagEditor(for: item) }
-            Divider()
-            Button("删除", role: .destructive) { appState.removeSaved(id: item.id) }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-        }
     }
 
     // ── Batch Action Bar ──
@@ -303,8 +215,8 @@ struct LibraryView: View {
 
     // ── Actions ──
 
-    private func saveFolder() {
-        _ = libraryStore.addFolder(name: newFolderName)
+    private func saveFolder(parentId: String?) {
+        _ = libraryStore.addFolder(name: newFolderName, parentId: parentId)
         newFolderName = ""
         isCreateFolderPresented = false
     }
@@ -316,18 +228,8 @@ struct LibraryView: View {
         isTagEditorPresented = false
     }
 
-    private func presentTagEditor(for item: LibraryItemViewData) {
-        editingPaperId = item.id
-        tagEditorText = item.meta.tags.joined(separator: ", ")
-        isTagEditorPresented = true
-    }
-
-    private func deleteItems(_ offsets: IndexSet, in items: [LibraryItemViewData]) {
-        for index in offsets { appState.removeSaved(id: items[index].id) }
-    }
-
-    private func deleteFolders(at offsets: IndexSet) {
-        let sorted = sortedFolders
+    private func deleteTopLevelFolders(at offsets: IndexSet) {
+        let sorted = topLevelFolders
         for index in offsets { libraryStore.removeFolder(id: sorted[index].id) }
     }
 
@@ -339,9 +241,9 @@ struct LibraryView: View {
     }
 }
 
-// MARK: - FolderPapersView (文件夹内容页)
+// MARK: - FolderContentsView (文件夹内容页，支持无限嵌套)
 
-private struct FolderPapersView: View {
+struct FolderContentsView: View {
     let folder: LibraryFolder
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var libraryStore: LibraryStore
@@ -349,9 +251,15 @@ private struct FolderPapersView: View {
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<String>()
     @State private var isBatchMovePresented = false
+    @State private var isCreateSubfolderPresented = false
+    @State private var newSubfolderName = ""
     @State private var isTagEditorPresented = false
     @State private var tagEditorText = ""
     @State private var editingPaperId: String?
+
+    private var childFolders: [LibraryFolder] {
+        libraryStore.childFolders(of: folder.id)
+    }
 
     private var papersInFolder: [LibraryItemViewData] {
         appState.libraryItems()
@@ -361,32 +269,59 @@ private struct FolderPapersView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            let items = papersInFolder
-            if items.isEmpty {
+            let papers = papersInFolder
+            let subfolders = childFolders
+
+            if papers.isEmpty && subfolders.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "folder")
                         .font(.system(size: 36))
                         .foregroundStyle(.secondary)
                     Text("文件夹是空的")
                         .font(.headline)
-                    Text("在知识库中通过菜单或拖拽将论文移入")
+                    Text("通过菜单或拖拽将论文移入，\n或创建子文件夹")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(selection: $selection) {
-                    ForEach(items) { item in
-                        folderPaperRow(item)
-                            .tag(item.id)
+                    // ── 子文件夹 ──
+                    if !subfolders.isEmpty && !editMode.isEditing {
+                        Section {
+                            ForEach(subfolders) { child in
+                                FolderRow(folder: child)
+                            }
+                            .onDelete { offsets in
+                                for index in offsets {
+                                    libraryStore.removeFolder(id: subfolders[index].id)
+                                }
+                            }
+                        } header: {
+                            Text("子文件夹")
+                        }
                     }
-                    .onDelete { offsets in
-                        for index in offsets {
-                            libraryStore.updateFolder(for: items[index].id, folderId: nil)
+
+                    // ── 论文 ──
+                    if !papers.isEmpty {
+                        Section {
+                            ForEach(papers) { item in
+                                PaperRow(item: item, editMode: editMode, currentFolderId: folder.id)
+                                    .tag(item.id)
+                                    .draggable(item.id)
+                            }
+                            .onDelete { offsets in
+                                for index in offsets {
+                                    libraryStore.updateFolder(for: papers[index].id, folderId: folder.parentId)
+                                }
+                            }
+                        } header: {
+                            Text("论文（\(papers.count)）")
                         }
                     }
                 }
-                .listStyle(.plain)
+                .listStyle(.insetGrouped)
             }
 
             if editMode.isEditing && !selection.isEmpty {
@@ -411,13 +346,30 @@ private struct FolderPapersView: View {
                     Text(editMode.isEditing ? "完成" : "选择")
                 }
             }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button { isCreateSubfolderPresented = true } label: {
+                    Image(systemName: "folder.badge.plus")
+                }
+            }
         }
         .onAppear { libraryStore.activeFolderId = folder.id }
+        .sheet(isPresented: $isCreateSubfolderPresented) {
+            FolderEditorView(
+                text: $newSubfolderName,
+                onCancel: { isCreateSubfolderPresented = false },
+                onSave: {
+                    _ = libraryStore.addFolder(name: newSubfolderName, parentId: folder.id)
+                    newSubfolderName = ""
+                    isCreateSubfolderPresented = false
+                }
+            )
+        }
         .sheet(isPresented: $isBatchMovePresented) {
-            BatchMoveView(
-                folders: libraryStore.folders.filter { $0.id != folder.id },
+            FolderPickerView(
+                libraryStore: libraryStore,
+                excludeFolderId: folder.id,
                 onCancel: { isBatchMovePresented = false },
-                onMove: { folderId in
+                onPick: { folderId in
                     for id in selection {
                         libraryStore.updateFolder(for: id, folderId: folderId)
                     }
@@ -441,86 +393,17 @@ private struct FolderPapersView: View {
         }
     }
 
-    // ── Paper Row (in folder) ──
-
-    private func folderPaperRow(_ item: LibraryItemViewData) -> some View {
-        NavigationLink {
-            PaperDetailView(paper: item.paper)
-        } label: {
-            HStack(alignment: .center, spacing: 8) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(item.paper.headerLine)
-                        .font(.headline)
-                        .lineLimit(2)
-                    Text(item.paper.summaryText)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                    HStack(spacing: 6) {
-                        StatusBadge(status: item.meta.status)
-                        if !item.meta.tags.isEmpty {
-                            Text(item.meta.tags.joined(separator: " · "))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
-                if !editMode.isEditing {
-                    Spacer()
-                    Menu {
-                        Menu("移至其他文件夹") {
-                            Button("无文件夹") {
-                                libraryStore.updateFolder(for: item.id, folderId: nil)
-                            }
-                            Divider()
-                            ForEach(libraryStore.folders.filter { $0.id != folder.id }) { f in
-                                Button(f.name) {
-                                    libraryStore.updateFolder(for: item.id, folderId: f.id)
-                                }
-                            }
-                        }
-                        Divider()
-                        Button("标记为未读") { libraryStore.updateStatus(for: item.id, status: .unread) }
-                        Button("标记为在读") { libraryStore.updateStatus(for: item.id, status: .reading) }
-                        Button("标记为已读") { libraryStore.updateStatus(for: item.id, status: .finished) }
-                        Divider()
-                        Button("编辑标签") {
-                            editingPaperId = item.id
-                            tagEditorText = item.meta.tags.joined(separator: ", ")
-                            isTagEditorPresented = true
-                        }
-                        Divider()
-                        Button("移出文件夹") {
-                            libraryStore.updateFolder(for: item.id, folderId: nil)
-                        }
-                        Button("删除收藏", role: .destructive) {
-                            appState.removeSaved(id: item.id)
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    // ── Batch Bar (in folder) ──
-
     private var folderBatchBar: some View {
         HStack(spacing: 16) {
             Button {
                 isBatchMovePresented = true
             } label: {
-                Label("移至其他文件夹", systemImage: "folder")
+                Label("移动", systemImage: "folder")
             }
 
             Button {
                 for id in selection {
-                    libraryStore.updateFolder(for: id, folderId: nil)
+                    libraryStore.updateFolder(for: id, folderId: folder.parentId)
                 }
                 selection.removeAll()
                 editMode = .inactive
@@ -548,6 +431,169 @@ private struct FolderPapersView: View {
     }
 }
 
+// MARK: - FolderRow (可复用的文件夹行)
+
+private struct FolderRow: View {
+    let folder: LibraryFolder
+    @EnvironmentObject private var libraryStore: LibraryStore
+
+    var body: some View {
+        NavigationLink {
+            FolderContentsView(folder: folder)
+        } label: {
+            Label {
+                HStack {
+                    Text(folder.name)
+                    Spacer()
+                    let subCount = libraryStore.childFolderCount(of: folder.id)
+                    let paperCount = libraryStore.totalPaperCount(in: folder.id)
+                    if subCount > 0 {
+                        Text("\(subCount) 个子文件夹")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    Text("\(paperCount)")
+                        .foregroundStyle(.tertiary)
+                }
+            } icon: {
+                Image(systemName: libraryStore.childFolderCount(of: folder.id) > 0
+                      ? "folder.fill"
+                      : "folder.fill")
+                    .foregroundStyle(.blue)
+            }
+        }
+        .dropDestination(for: String.self) { ids, _ in
+            for id in ids {
+                libraryStore.updateFolder(for: id, folderId: folder.id)
+            }
+            return true
+        }
+    }
+}
+
+// MARK: - PaperRow (可复用的论文行)
+
+private struct PaperRow: View {
+    let item: LibraryItemViewData
+    let editMode: EditMode
+    let currentFolderId: String?
+    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var libraryStore: LibraryStore
+
+    var body: some View {
+        NavigationLink {
+            PaperDetailView(paper: item.paper)
+        } label: {
+            HStack(alignment: .center, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(item.paper.headerLine)
+                        .font(.headline)
+                        .lineLimit(2)
+                    Text(item.paper.summaryText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                    HStack(spacing: 6) {
+                        StatusBadge(status: item.meta.status)
+                        if !item.meta.tags.isEmpty {
+                            Text(item.meta.tags.joined(separator: " · "))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                if !editMode.isEditing {
+                    Spacer()
+                    paperMenu
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private var paperMenu: some View {
+        Menu {
+            if !libraryStore.folders.isEmpty {
+                Menu("移入文件夹") {
+                    Button("无文件夹（根目录）") {
+                        libraryStore.updateFolder(for: item.id, folderId: nil)
+                    }
+                    Divider()
+                    let tree = libraryStore.flatFolderTree(excludingDescendantsOf: nil)
+                    ForEach(tree, id: \.folder.id) { entry in
+                        Button {
+                            libraryStore.updateFolder(for: item.id, folderId: entry.folder.id)
+                        } label: {
+                            Text(String(repeating: "  ", count: entry.depth) + entry.folder.name)
+                        }
+                    }
+                }
+                Divider()
+            }
+            Button("标记为未读") { libraryStore.updateStatus(for: item.id, status: .unread) }
+            Button("标记为在读") { libraryStore.updateStatus(for: item.id, status: .reading) }
+            Button("标记为已读") { libraryStore.updateStatus(for: item.id, status: .finished) }
+            Divider()
+            if currentFolderId != nil {
+                Button("移出当前文件夹") {
+                    // 移到上一级
+                    let parent = libraryStore.folders.first(where: { $0.id == currentFolderId })?.parentId
+                    libraryStore.updateFolder(for: item.id, folderId: parent)
+                }
+                Divider()
+            }
+            Button("删除收藏", role: .destructive) { appState.removeSaved(id: item.id) }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - FolderPickerView (层级文件夹选择器)
+
+private struct FolderPickerView: View {
+    let libraryStore: LibraryStore
+    let excludeFolderId: String?
+    let onCancel: () -> Void
+    let onPick: (String?) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Button {
+                    onPick(nil)
+                } label: {
+                    Label("根目录（无文件夹）", systemImage: "tray")
+                }
+
+                let tree = libraryStore.flatFolderTree(excludingDescendantsOf: excludeFolderId)
+                ForEach(tree, id: \.folder.id) { entry in
+                    Button {
+                        onPick(entry.folder.id)
+                    } label: {
+                        HStack(spacing: 0) {
+                            ForEach(0..<entry.depth, id: \.self) { _ in
+                                Text("    ")
+                            }
+                            Label(entry.folder.name, systemImage: "folder.fill")
+                        }
+                    }
+                }
+            }
+            .navigationTitle("选择目标文件夹")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消", action: onCancel)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - StatusBadge
 
 private struct StatusBadge: View {
@@ -568,41 +614,6 @@ private struct StatusBadge: View {
             .padding(.vertical, 2)
             .background(Capsule().fill(color.opacity(0.15)))
             .foregroundStyle(color)
-    }
-}
-
-// MARK: - BatchMoveView
-
-private struct BatchMoveView: View {
-    let folders: [LibraryFolder]
-    let onCancel: () -> Void
-    let onMove: (String?) -> Void
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Button {
-                    onMove(nil)
-                } label: {
-                    Label("无文件夹（移出）", systemImage: "tray")
-                }
-
-                ForEach(folders.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }) { folder in
-                    Button {
-                        onMove(folder.id)
-                    } label: {
-                        Label(folder.name, systemImage: "folder.fill")
-                    }
-                }
-            }
-            .navigationTitle("选择目标文件夹")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消", action: onCancel)
-                }
-            }
-        }
     }
 }
 
