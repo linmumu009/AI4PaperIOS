@@ -21,16 +21,16 @@ final class AppState: ObservableObject {
 
         store.$savedIds
             .dropFirst()
-            .sink { [weak self] _ in
-                self?.refreshSavedPapers()
-                self?.refreshFeed()
+            .sink { [weak self] newSavedIds in
+                self?.refreshSavedPapers(savedIds: newSavedIds)
+                self?.refreshFeed(savedIds: newSavedIds)
             }
             .store(in: &cancellables)
 
         store.$dislikedIds
             .dropFirst()
-            .sink { [weak self] _ in
-                self?.refreshFeed()
+            .sink { [weak self] newDislikedIds in
+                self?.refreshFeed(dislikedIds: newDislikedIds)
             }
             .store(in: &cancellables)
     }
@@ -59,15 +59,17 @@ final class AppState: ObservableObject {
         currentPaper?.linkURL
     }
 
-    private func refreshFeed() {
-        let savedSet = Set(store.savedIds)
+    private func refreshFeed(savedIds: [String]? = nil, dislikedIds: Set<String>? = nil) {
+        let savedSet = Set(savedIds ?? store.savedIds)
+        let dislikedSet = dislikedIds ?? store.dislikedIds
         feedPapers = allPapers.filter { paper in
-            !savedSet.contains(paper.id) && !store.dislikedIds.contains(paper.id)
+            !savedSet.contains(paper.id) && !dislikedSet.contains(paper.id)
         }
     }
 
-    private func refreshSavedPapers() {
+    private func refreshSavedPapers(savedIds: [String]? = nil) {
+        let ids = savedIds ?? store.savedIds
         let lookup = Dictionary(uniqueKeysWithValues: allPapers.map { ($0.id, $0) })
-        savedPapers = store.savedIds.compactMap { lookup[$0] }
+        savedPapers = ids.compactMap { lookup[$0] }
     }
 }

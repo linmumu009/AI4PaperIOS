@@ -52,7 +52,7 @@ private struct ActionBarView: View {
             Button(action: onLike) {
                 Label("Like", systemImage: "heart.fill")
             }
-            .buttonStyle(ActionButtonStyle(tint: .pink))
+            .buttonStyle(ActionButtonStyle(tint: .green))
             .disabled(!isEnabled)
 
             Button(action: onDislike) {

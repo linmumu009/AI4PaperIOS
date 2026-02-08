@@ -40,7 +40,7 @@ struct CardStackView: View {
     private var swipeOverlay: some View {
         HStack {
             if dragOffset.width > 40 {
-                swipeBadge(text: "SAVE", color: .pink)
+                swipeBadge(text: "SAVE", color: .green)
                 Spacer()
             } else if dragOffset.width < -40 {
                 Spacer()
