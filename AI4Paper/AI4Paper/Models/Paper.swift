@@ -74,6 +74,21 @@ extension Paper {
         [source, institution].filter { !$0.isEmpty }
     }
 
+    /// e.g. "BMW：分离资产与攻击路径的威胁建模"
+    var headerLine: String {
+        switch (institution.isEmpty, shortTitle.isEmpty) {
+        case (false, false): return "\(institution)：\(shortTitle)"
+        case (false, true):  return institution
+        case (true, false):  return shortTitle
+        case (true, true):   return displayTitle
+        }
+    }
+
+    /// e.g. "arxiv, 2602.05877"
+    var sourceLine: String {
+        [source, id].filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+
     var linkURL: URL? {
         guard !id.isEmpty else { return nil }
         guard source.lowercased() == "arxiv" else { return nil }
