@@ -367,7 +367,7 @@ struct FolderContentsView: View {
         .sheet(isPresented: $isBatchMovePresented) {
             FolderPickerView(
                 libraryStore: libraryStore,
-                excludeFolderId: folder.id,
+                excludeFolderId: nil,
                 onCancel: { isBatchMovePresented = false },
                 onPick: { folderId in
                     for id in selection {
