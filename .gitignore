@@ -1,0 +1,12 @@
+# 不上传大资源
+resource/
+
+# macOS/Xcode 常见忽略（以后有工程也用得上）
+.DS_Store
+DerivedData/
+*.xcuserstate
+*.xcuserdata/
+build/
+*.ipa
+*.dSYM
+*.xcarchive
