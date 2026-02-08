@@ -2,44 +2,27 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject private var appState: AppState
-    @Environment(\.openURL) private var openURL
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                if appState.feedPapers.isEmpty {
-                    EmptyFeedView()
-                } else {
-                    CardStackView(
-                        papers: appState.feedPapers,
-                        onLike: { _ in appState.likeCurrent() },
-                        onDislike: { _ in appState.dislikeCurrent() }
-                    )
-                }
-
-                ActionBarView(
-                    isEnabled: appState.currentPaper != nil,
-                    onDislike: { appState.dislikeCurrent() },
-                    onSave: { appState.likeCurrent() },
-                    onOpenLink: {
-                        guard let url = appState.linkForCurrent() else { return }
-                        openURL(url)
-                    }
+        VStack(spacing: 16) {
+            if appState.feedPapers.isEmpty {
+                EmptyFeedView()
+            } else {
+                CardStackView(
+                    papers: appState.feedPapers,
+                    onLike: { _ in appState.likeCurrent() },
+                    onDislike: { _ in appState.dislikeCurrent() }
                 )
             }
-            .padding()
-            .navigationTitle("AI4Paper")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink {
-                        LibraryView()
-                    } label: {
-                        Image(systemName: "books.vertical")
-                    }
-                    .accessibilityLabel("Library")
-                }
-            }
+
+            ActionBarView(
+                isEnabled: appState.currentPaper != nil,
+                onLike: { appState.likeCurrent() },
+                onDislike: { appState.dislikeCurrent() }
+            )
         }
+        .padding()
+        .navigationTitle("AI4Paper")
     }
 }
 
@@ -61,28 +44,21 @@ private struct EmptyFeedView: View {
 
 private struct ActionBarView: View {
     let isEnabled: Bool
+    let onLike: () -> Void
     let onDislike: () -> Void
-    let onSave: () -> Void
-    let onOpenLink: () -> Void
 
     var body: some View {
         HStack(spacing: 24) {
-            Button(action: onDislike) {
-                Label("Dislike", systemImage: "xmark")
-            }
-            .buttonStyle(ActionButtonStyle(tint: .red))
-            .disabled(!isEnabled)
-
-            Button(action: onSave) {
-                Label("Save", systemImage: "heart.fill")
+            Button(action: onLike) {
+                Label("Like", systemImage: "heart.fill")
             }
             .buttonStyle(ActionButtonStyle(tint: .pink))
             .disabled(!isEnabled)
 
-            Button(action: onOpenLink) {
-                Label("Open", systemImage: "arrow.up.right.square")
+            Button(action: onDislike) {
+                Label("Dislike", systemImage: "xmark")
             }
-            .buttonStyle(ActionButtonStyle(tint: .blue))
+            .buttonStyle(ActionButtonStyle(tint: .red))
             .disabled(!isEnabled)
         }
     }

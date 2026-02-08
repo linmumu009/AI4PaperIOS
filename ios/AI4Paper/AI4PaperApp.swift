@@ -6,7 +6,7 @@ struct AI4PaperApp: App {
 
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            RootTabView()
                 .environmentObject(appState)
         }
     }

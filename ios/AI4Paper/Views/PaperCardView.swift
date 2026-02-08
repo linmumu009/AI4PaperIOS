@@ -7,16 +7,23 @@ struct PaperCardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text(paper.title)
+                Text(paper.displayTitle)
                     .font(.headline)
                     .lineLimit(2)
 
-                TagChipsView(tags: paper.tags)
+                if let subtitle = paper.subtitle {
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                TagChipsView(tags: paper.displayTags)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("摘要")
                         .font(.subheadline.weight(.semibold))
-                    Text(paper.summary)
+                    Text(paper.summaryText)
                         .font(.body)
                         .lineLimit(isExpanded ? nil : 6)
 
@@ -41,11 +48,6 @@ struct PaperCardView: View {
                     }
                 }
 
-                if !paper.authors.isEmpty || paper.year > 0 || !paper.venue.isEmpty {
-                    Text(metaText)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
             }
             .padding(16)
         }
@@ -56,12 +58,4 @@ struct PaperCardView: View {
         )
     }
 
-    private var metaText: String {
-        let authors = paper.authors.joined(separator: ", ")
-        let year = paper.year > 0 ? String(paper.year) : ""
-        let venue = paper.venue
-        return [authors, year, venue]
-            .filter { !$0.isEmpty }
-            .joined(separator: " · ")
-    }
 }

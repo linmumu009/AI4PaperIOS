@@ -57,8 +57,7 @@ final class AppState: ObservableObject {
     }
 
     func linkForCurrent() -> URL? {
-        guard let link = currentPaper?.link else { return nil }
-        return URL(string: link)
+        currentPaper?.linkURL
     }
 
     private func refreshFeed() {
