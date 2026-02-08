@@ -8,22 +8,30 @@ final class AppState: ObservableObject {
 
     private let repository: PapersRepository
     let store: SwipeStore
+    let libraryStore: LibraryStore
     private let allPapers: [Paper]
     private var cancellables = Set<AnyCancellable>()
 
-    init(repository: PapersRepository = .bundle, store: SwipeStore = SwipeStore()) {
+    init(
+        repository: PapersRepository = .bundle,
+        store: SwipeStore = SwipeStore(),
+        libraryStore: LibraryStore = LibraryStore()
+    ) {
         self.repository = repository
         self.store = store
+        self.libraryStore = libraryStore
         self.allPapers = repository.loadPapers()
 
         refreshFeed()
         refreshSavedPapers()
+        libraryStore.syncSavedIds(store.savedIds)
 
         store.$savedIds
             .dropFirst()
             .sink { [weak self] newSavedIds in
                 self?.refreshSavedPapers(savedIds: newSavedIds)
                 self?.refreshFeed(savedIds: newSavedIds)
+                self?.libraryStore.syncSavedIds(newSavedIds)
             }
             .store(in: &cancellables)
 
@@ -57,6 +65,10 @@ final class AppState: ObservableObject {
 
     func linkForCurrent() -> URL? {
         currentPaper?.linkURL
+    }
+
+    func libraryItems() -> [LibraryItemViewData] {
+        libraryStore.items(for: savedPapers)
     }
 
     private func refreshFeed(savedIds: [String]? = nil, dislikedIds: Set<String>? = nil) {
