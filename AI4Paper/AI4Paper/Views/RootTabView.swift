@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct RootTabView: View {
+    @EnvironmentObject private var appState: AppState
+
     var body: some View {
         TabView {
             NavigationStack {
@@ -18,6 +20,7 @@ struct RootTabView: View {
             .tabItem {
                 Label("推荐", systemImage: "sparkles")
             }
+            .badge(appState.feedPapers.count)
 
             NavigationStack {
                 ProfileView()
