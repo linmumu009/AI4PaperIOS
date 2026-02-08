@@ -5,6 +5,9 @@ final class LibraryStore: ObservableObject {
     @Published private(set) var metas: [String: LibraryItemMeta]
     @Published private(set) var folders: [LibraryFolder]
 
+    /// 当前知识库选中的文件夹，推荐页 like 时自动归入此文件夹
+    @Published var activeFolderId: String?
+
     private let storageURL: URL
 
     init() {
@@ -26,7 +29,9 @@ final class LibraryStore: ObservableObject {
         var changed = false
 
         for id in savedSet.subtracting(currentSet) {
-            metas[id] = LibraryItemMeta(paperId: id, savedAt: Date(), updatedAt: Date())
+            var meta = LibraryItemMeta(paperId: id, savedAt: Date(), updatedAt: Date())
+            meta.folderId = activeFolderId
+            metas[id] = meta
             changed = true
         }
 
@@ -101,6 +106,9 @@ final class LibraryStore: ObservableObject {
 
     func removeFolder(id: String) {
         folders.removeAll { $0.id == id }
+        if activeFolderId == id {
+            activeFolderId = nil
+        }
         for (key, value) in metas where value.folderId == id {
             var updated = value
             updated.folderId = nil

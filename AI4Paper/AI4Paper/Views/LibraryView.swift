@@ -7,7 +7,6 @@ struct LibraryView: View {
     @State private var searchText = ""
     @State private var sortOption: LibrarySortOption = .recentSaved
     @State private var statusFilter: LibraryStatusFilter = .all
-    @State private var selectedFolderId: String?
     @State private var selectedTag: String?
     @State private var grouping: LibraryGrouping = .none
 
@@ -54,9 +53,9 @@ struct LibraryView: View {
                     }
                     Divider()
                     Menu("文件夹筛选") {
-                        Button("全部文件夹") { selectedFolderId = nil }
+                        Button("全部文件夹") { libraryStore.activeFolderId = nil }
                         ForEach(libraryStore.folders) { folder in
-                            Button(folder.name) { selectedFolderId = folder.id }
+                            Button(folder.name) { libraryStore.activeFolderId = folder.id }
                         }
                     }
                     Menu("标签筛选") {
@@ -124,8 +123,8 @@ struct LibraryView: View {
             items = items.filter { $0.meta.status == requiredStatus }
         }
 
-        if let selectedFolderId {
-            items = items.filter { $0.meta.folderId == selectedFolderId }
+        if let activeFolderId = libraryStore.activeFolderId {
+            items = items.filter { $0.meta.folderId == activeFolderId }
         }
 
         if let selectedTag {
@@ -264,12 +263,9 @@ struct LibraryView: View {
     }
 
     private func saveFolder() {
-        let created = libraryStore.addFolder(name: newFolderName)
+        _ = libraryStore.addFolder(name: newFolderName)
         newFolderName = ""
         isCreateFolderPresented = false
-        if let created {
-            selectedFolderId = created.id
-        }
     }
 
     private func deleteItems(_ offsets: IndexSet, in items: [LibraryItemViewData]) {
